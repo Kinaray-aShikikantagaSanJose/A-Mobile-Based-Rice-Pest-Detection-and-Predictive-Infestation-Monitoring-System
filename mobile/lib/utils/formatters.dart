@@ -40,6 +40,22 @@ String pestName(String? key, {String fallback = 'Not identified'}) {
   return kPestNames[key] ?? key.replaceAll('_', ' ');
 }
 
+/// Land type of the field (same keys as the API, app/land.py). The
+/// definitions are in docs/land-type-definition.md.
+const List<(String, String, String)> kLandTypes = [
+  ('upland', 'Upland', 'Sloping or high ground, no bunds, no standing water. Rain is the only water.'),
+  ('rainfed_lowland', 'Rainfed lowland', 'Bunded, flat paddy that holds water from rain or run-off only.'),
+  ('irrigated_lowland', 'Irrigated lowland', 'Bunded, flat paddy with water from an irrigation canal or pump.'),
+];
+
+/// 'Upland', 'Rainfed lowland', 'Irrigated lowland', or 'Not recorded'.
+String landTypeLabel(String? key) {
+  for (final (k, label, _) in kLandTypes) {
+    if (k == key) return label;
+  }
+  return 'Not recorded';
+}
+
 const List<String> kTrapTypes = [
   'Sticky trap (yellow)',
   'Sticky trap (blue)',

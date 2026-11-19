@@ -7,7 +7,7 @@ import '../services/api_client.dart';
 import '../services/local_store.dart';
 import '../theme.dart';
 
-/// The server photo with the AI's detection boxes drawn on top. The image is
+/// The server photo with the model result's detection boxes drawn on top. The image is
 /// shown at its own aspect ratio so the (0-1) box coordinates line up.
 /// Tap for full screen with zoom.
 class DetectionPhoto extends StatefulWidget {

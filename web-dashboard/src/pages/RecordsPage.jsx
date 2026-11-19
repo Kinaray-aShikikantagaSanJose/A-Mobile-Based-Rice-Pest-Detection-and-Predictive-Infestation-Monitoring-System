@@ -3,11 +3,11 @@ import { api } from '../api.js';
 import AuthImage from '../components/AuthImage.jsx';
 import RecordDrawer from '../components/RecordDrawer.jsx';
 import { Badge, Button, Empty, ErrorNote, Field, LevelBadge, Loading, Panel, PageHeader, Select, STATUS_OPTIONS, StatusBadge, Table } from '../components/ui.jsx';
-import { CROP_STAGES, fmtCount, fmtDate, LEVELS, useAsync, useDebounced } from '../lib.js';
+import { CROP_STAGES, fmtCount, fmtDate, LAND_TYPES, landTypeLabel, LEVELS, useAsync, useDebounced } from '../lib.js';
 
 const STATUSES = [...STATUS_OPTIONS, ['all', 'All statuses']];
 const PAGE = 50;
-const NO_FILTERS = { status: 'validated', pest: '', level: '', municipality: '', crop_stage: '', start: '', end: '' };
+const NO_FILTERS = { status: 'validated', pest: '', level: '', municipality: '', crop_stage: '', land_type: '', start: '', end: '' };
 
 export default function RecordsPage({ viewer, onChanged }) {
   const isAgri = viewer.role === 'agriculturist';
@@ -63,13 +63,18 @@ export default function RecordsPage({ viewer, onChanged }) {
       align: 'right',
       render: (r) => {
         if (r.is_disease) return <span className="text-muted">—</span>;
-        // Not validated yet: only the AI's count exists.
-        if (r.status !== 'validated') return r.ai_count == null ? <span className="text-muted">—</span> : <span className="text-ink2">{r.ai_count} (AI)</span>;
+        // Not validated yet: only the model result's count exists.
+        if (r.status !== 'validated') return r.ai_count == null ? <span className="text-muted">—</span> : <span className="text-ink2">{r.ai_count} (model result)</span>;
         return <span className={r.count === null ? 'text-xs text-ink2' : 'font-semibold'}>{fmtCount(r.count)}</span>;
       },
     },
     { key: 'level', label: 'Level', render: (r) => <LevelBadge level={r.level} /> },
     { key: 'crop_stage', label: 'Crop stage', render: (r) => r.crop_stage || <span className="text-muted">—</span> },
+    {
+      key: 'land_type',
+      label: 'Land type',
+      render: (r) => (r.land_type ? r.land_type_label || landTypeLabel(r.land_type) : <span className="text-muted">—</span>),
+    },
     { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> },
     {
       key: 'validated_by',
@@ -117,6 +122,9 @@ export default function RecordsPage({ viewer, onChanged }) {
           </Field>
           <Field label="Crop stage">
             <Select value={f.crop_stage} onChange={set('crop_stage')} placeholder="All stages" options={CROP_STAGES} />
+          </Field>
+          <Field label="Land type">
+            <Select value={f.land_type} onChange={set('land_type')} placeholder="All land types" options={LAND_TYPES} />
           </Field>
           {isAgri && (
             <Field label="Municipality">

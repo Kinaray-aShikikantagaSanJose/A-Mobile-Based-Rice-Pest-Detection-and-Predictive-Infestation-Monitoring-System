@@ -7,7 +7,7 @@ import { fmtCount, fmtDateTime, fmtNum, REVIEW_ACTIONS, useAsync } from '../lib.
 const ACTION_TONE = { validated: 'green', returned: 'gray', escalated: 'purple', diagnosis: 'blue' };
 const PAGE = 50;
 
-/** A validation that changed the AI's pest or count. */
+/** A validation that changed the model result's pest or count. */
 const corrected = (r) => r.action === 'validated' && r.report_type === 'pest' && r.ai_pest !== r.pest;
 
 export default function HistoryPage({ viewer }) {
@@ -36,7 +36,7 @@ export default function HistoryPage({ viewer }) {
       {res.data && (
         <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Stat label="Validated" value={fmtNum(n('validated') + n('diagnosis'))} tone="brand" hint={`${fmtNum(n('diagnosis'))} disease diagnoses`} />
-          <Stat label="AI pest corrected" value={fmtNum(all.filter(corrected).length)} hint="Pest differed from the AI's" />
+          <Stat label="Model result pest corrected" value={fmtNum(all.filter(corrected).length)} hint="Pest differed from the model result" />
           <Stat label="Returned to farmer" value={fmtNum(n('returned'))} tone="muted" />
           <Stat label="Escalated" value={fmtNum(n('escalated'))} tone={n('escalated') ? 'orange' : 'muted'} />
         </div>
@@ -105,7 +105,7 @@ export default function HistoryPage({ viewer }) {
               },
               {
                 key: 'result',
-                label: 'AI said → you set',
+                label: 'Model result → you set',
                 render: (r) =>
                   r.action === 'validated' && r.report_type === 'pest' ? (
                     <div className="text-sm">

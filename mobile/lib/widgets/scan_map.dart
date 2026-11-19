@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
@@ -61,6 +63,43 @@ class ScanZone {
   Color get fillColor => borderColor.withValues(alpha: _risk == 'HIGH' || _risk == 'MEDIUM' ? 0.35 : 0.3);
 }
 
+/// One validated record on the heatmap. [weight] is its intensity
+/// (e.g. 1/3, 2/3, 1 for LOW, MEDIUM, HIGH, or 1 per case).
+class ScanHeatPoint {
+  final double lat;
+  final double lng;
+  final double weight;
+  const ScanHeatPoint({required this.lat, required this.lng, this.weight = 1});
+
+  bool get hasLocation => _hasLocation(lat, lng);
+}
+
+/// Directional spread: from one window's centre of cases to the next.
+class ScanArrow {
+  final double fromLat, fromLng, toLat, toLng;
+
+  /// Degrees clockwise from north.
+  final double bearing;
+  final Color color;
+  const ScanArrow({
+    required this.fromLat,
+    required this.fromLng,
+    required this.toLat,
+    required this.toLng,
+    required this.bearing,
+    required this.color,
+  });
+}
+
+/// Heatmap colours, low to high (same stops as the web dashboard).
+const List<(double, Color)> kHeatStops = [
+  (0.2, Color(0xFF2C7BB6)),
+  (0.4, Color(0xFF00A6CA)),
+  (0.6, Color(0xFF90EB9D)),
+  (0.8, Color(0xFFF9D057)),
+  (1.0, Color(0xFFD7191C)),
+];
+
 /// Terrain basemap (OpenTopoMap) when online; a labeled local terrain
 /// preview with the same pins when offline, so maps never go blank.
 ///
@@ -80,9 +119,21 @@ class ScanMap extends StatefulWidget {
   /// Overlay text shown when there is no located marker or zone.
   final String? emptyMessage;
 
+  /// Heatmap of validated records (drawn under the markers).
+  final List<ScanHeatPoint> heatPoints;
+
+  /// Combined weight at which the heat reaches the top colour.
+  final double heatMax;
+
+  /// Directional spread arrows.
+  final List<ScanArrow> arrows;
+
   const ScanMap({
     super.key,
     required this.markers,
+    this.heatPoints = const [],
+    this.heatMax = 1.5,
+    this.arrows = const [],
     this.zones = const [],
     this.height = 200,
     this.zoom = 14,
@@ -153,7 +204,12 @@ class ScanMapState extends State<ScanMap> {
           if (m.hasLocation) LatLng(m.lat, m.lng),
         for (final z in w.zones)
           if (z.hasLocation) LatLng(z.lat, z.lng),
+        for (final h in w.heatPoints)
+          if (h.hasLocation) LatLng(h.lat, h.lng),
+        for (final a in w.arrows) ...[LatLng(a.fromLat, a.fromLng), LatLng(a.toLat, a.toLng)],
       ];
+
+  List<ScanHeatPoint> get _locatedHeat => widget.heatPoints.where((h) => h.hasLocation).toList();
 
   static String _signature(List<LatLng> pts) =>
       pts.map((p) => '${p.latitude.toStringAsFixed(6)},${p.longitude.toStringAsFixed(6)}').join('|');
@@ -204,8 +260,11 @@ class ScanMapState extends State<ScanMap> {
 
   @override
   Widget build(BuildContext context) {
-    final bool showEmpty =
-        widget.emptyMessage != null && _located.isEmpty && _locatedZones.isEmpty;
+    final bool showEmpty = widget.emptyMessage != null &&
+        _located.isEmpty &&
+        _locatedZones.isEmpty &&
+        _locatedHeat.isEmpty &&
+        widget.arrows.isEmpty;
     final Widget base;
     if (_online == true) {
       base = KeyedSubtree(key: const ValueKey('online'), child: _onlineMap());
@@ -364,6 +423,33 @@ class ScanMapState extends State<ScanMap> {
               ],
             ),
           ),
+        if (_locatedHeat.isNotEmpty) _HeatLayer(points: _locatedHeat, max: widget.heatMax),
+        if (widget.arrows.isNotEmpty) ...[
+          PolylineLayer(
+            polylines: [
+              for (final a in widget.arrows)
+                Polyline(
+                  points: [LatLng(a.fromLat, a.fromLng), LatLng(a.toLat, a.toLng)],
+                  color: a.color,
+                  strokeWidth: 4,
+                  borderColor: AppColors.surface,
+                  borderStrokeWidth: 1.5,
+                  pattern: StrokePattern.dashed(segments: const [10, 7]),
+                ),
+            ],
+          ),
+          MarkerLayer(
+            markers: [
+              for (final a in widget.arrows)
+                Marker(
+                  point: LatLng(a.toLat, a.toLng),
+                  width: 28,
+                  height: 28,
+                  child: _ArrowHead(bearing: a.bearing, color: a.color),
+                ),
+            ],
+          ),
+        ],
         MarkerLayer(
           markers: () {
             final located = _located;
@@ -410,10 +496,23 @@ class ScanMapState extends State<ScanMap> {
         double x(double lng) => ((lng - centerLng) / span) * w / 2 + w / 2;
         double y(double lat) => ((centerLat - lat) / span) * h / 2 + h / 2;
         final keys = _markerKeys(ms);
+        final heat = _locatedHeat;
         return Stack(
           fit: StackFit.expand,
           children: [
             const CustomPaint(painter: _TerrainPainter()),
+            if (heat.isNotEmpty)
+              CustomPaint(
+                painter: _HeatPainter(
+                  [for (final h in heat) Offset(x(h.lng), y(h.lat))],
+                  [for (final h in heat) h.weight],
+                  max: widget.heatMax,
+                ),
+              ),
+            for (final a in widget.arrows)
+              CustomPaint(
+                painter: _ArrowPainter(Offset(x(a.fromLng), y(a.fromLat)), Offset(x(a.toLng), y(a.toLat)), a.color),
+              ),
             for (final z in zs)
               Builder(builder: (context) {
                 // Approximate meters→degrees for the local ellipse.
@@ -630,4 +729,174 @@ class _TerrainPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+
+/// Heatmap layer for the online map: projects the points with the map
+/// camera and paints them like [_HeatPainter].
+class _HeatLayer extends StatelessWidget {
+  final List<ScanHeatPoint> points;
+  final double max;
+  const _HeatLayer({required this.points, required this.max});
+
+  @override
+  Widget build(BuildContext context) {
+    final camera = MapCamera.of(context);
+    return MobileLayerTransformer(
+      child: IgnorePointer(
+        child: CustomPaint(
+          painter: _HeatPainter(
+            [for (final p in points) camera.getOffsetFromOrigin(LatLng(p.lat, p.lng))],
+            [for (final p in points) p.weight],
+            max: max,
+          ),
+          size: Size(camera.size.x, camera.size.y),
+          isComplex: true,
+        ),
+      ),
+    );
+  }
+}
+
+/// Weather-map style heat: each point spreads its weight over nearby cells
+/// (falling off with distance), the sum per cell is coloured low to high,
+/// and the cells are blurred into smooth patches. Points are binned into
+/// cells first, so thousands of records stay quick to draw.
+class _HeatPainter extends CustomPainter {
+  final List<Offset> points;
+  final List<double> weights;
+  final double max;
+  static const double _cell = 6;
+  static const double _radius = 26;
+
+  _HeatPainter(this.points, this.weights, {required this.max});
+
+  static Color colorAt(double t) {
+    if (t <= kHeatStops.first.$1) return kHeatStops.first.$2;
+    for (var i = 1; i < kHeatStops.length; i++) {
+      final (b, cb) = kHeatStops[i];
+      final (a, ca) = kHeatStops[i - 1];
+      if (t <= b) return Color.lerp(ca, cb, (t - a) / (b - a))!;
+    }
+    return kHeatStops.last.$2;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty || size.isEmpty) return;
+    final cols = (size.width / _cell).ceil() + 1;
+    final rows = (size.height / _cell).ceil() + 1;
+    final bins = Float32List(cols * rows);
+    for (var i = 0; i < points.length; i++) {
+      final o = points[i];
+      if (o.dx < -_radius || o.dy < -_radius || o.dx > size.width + _radius || o.dy > size.height + _radius) continue;
+      final cx = (o.dx / _cell).floor().clamp(0, cols - 1);
+      final cy = (o.dy / _cell).floor().clamp(0, rows - 1);
+      bins[cy * cols + cx] += weights[i];
+    }
+    final heat = Float32List(cols * rows);
+    final rc = (_radius / _cell).ceil();
+    for (var cy = 0; cy < rows; cy++) {
+      for (var cx = 0; cx < cols; cx++) {
+        final w = bins[cy * cols + cx];
+        if (w == 0) continue;
+        for (var dy = -rc; dy <= rc; dy++) {
+          final y = cy + dy;
+          if (y < 0 || y >= rows) continue;
+          for (var dx = -rc; dx <= rc; dx++) {
+            final x = cx + dx;
+            if (x < 0 || x >= cols) continue;
+            final d = math.sqrt((dx * dx + dy * dy).toDouble()) * _cell / _radius;
+            if (d >= 1) continue;
+            heat[y * cols + x] += w * (1 - d) * (1 - d);
+          }
+        }
+      }
+    }
+    canvas.saveLayer(
+      Offset.zero & size,
+      Paint()..imageFilter = ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5, tileMode: TileMode.decal),
+    );
+    final paint = Paint();
+    for (var cy = 0; cy < rows; cy++) {
+      for (var cx = 0; cx < cols; cx++) {
+        final v = heat[cy * cols + cx] / max;
+        if (v < 0.04) continue;
+        final t = v.clamp(0.0, 1.0);
+        paint.color = colorAt(t).withValues(alpha: 0.35 + 0.5 * t);
+        canvas.drawRect(Rect.fromLTWH(cx * _cell, cy * _cell, _cell + 0.5, _cell + 0.5), paint);
+      }
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeatPainter old) =>
+      old.max != max || !identical(old.points, points) || !identical(old.weights, weights);
+}
+
+class _ArrowHead extends StatelessWidget {
+  final double bearing;
+  final Color color;
+  const _ArrowHead({required this.bearing, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Transform.rotate(
+        angle: bearing * math.pi / 180,
+        child: CustomPaint(painter: _ArrowHeadPainter(color)),
+      );
+}
+
+class _ArrowHeadPainter extends CustomPainter {
+  final Color color;
+  const _ArrowHeadPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final path = Path()
+      ..moveTo(w / 2, h * 0.08)
+      ..lineTo(w * 0.85, h * 0.85)
+      ..lineTo(w / 2, h * 0.65)
+      ..lineTo(w * 0.15, h * 0.85)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = AppColors.surface
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArrowHeadPainter old) => old.color != color;
+}
+
+/// Offline preview: a straight arrow between two projected points.
+class _ArrowPainter extends CustomPainter {
+  final Offset from, to;
+  final Color color;
+  const _ArrowPainter(this.from, this.to, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final line = Paint()
+      ..color = color
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(from, to, line);
+    final angle = math.atan2(to.dy - from.dy, to.dx - from.dx);
+    const len = 14.0;
+    final head = Path()
+      ..moveTo(to.dx, to.dy)
+      ..lineTo(to.dx - len * math.cos(angle - 0.45), to.dy - len * math.sin(angle - 0.45))
+      ..lineTo(to.dx - len * math.cos(angle + 0.45), to.dy - len * math.sin(angle + 0.45))
+      ..close();
+    canvas.drawPath(head, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArrowPainter old) => old.from != from || old.to != to || old.color != color;
 }

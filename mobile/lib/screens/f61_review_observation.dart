@@ -17,8 +17,8 @@ import '../widgets/shell_scope.dart';
 import 'f47_submission_done.dart';
 
 /// Reviewing one observation, in the order of the process flow:
-/// 1 Check the result: pest reports show the AI's pest and count, which the
-///   technician confirms or corrects; disease reports have no AI, so the
+/// 1 Check the result: pest reports show the model result's pest and count, which the
+///   technician confirms or corrects; disease reports have no model result, so the
 ///   technician checks the photo and the farmer's description.
 /// 2 Decide: Return (photo unclear, the farmer retakes it) · Validate (confirm
 ///   or override the infestation level) · Escalate (refer the case to an
@@ -37,7 +37,7 @@ class _F61ReviewObservationState extends State<F61ReviewObservation> {
   Record? _r;
   String? _error;
 
-  // Step 1: the result being confirmed (starts as the AI's).
+  // Step 1: the result being confirmed (starts as the model result's).
   String? _pest;
   int? _count;
   bool _countable = true;
@@ -89,7 +89,7 @@ class _F61ReviewObservationState extends State<F61ReviewObservation> {
 
   bool get _canAct => _r?.status == 'pending';
 
-  /// True while the reviewer's result is still the AI's.
+  /// True while the reviewer's result is still the model result's.
   bool get _sameAsAi {
     final ai = _r?.ai;
     return ai != null && ai.pest != null && _pest == ai.pest && _count == ai.count && _countable == (ai.count != null);
@@ -392,7 +392,7 @@ class _F61ReviewObservationState extends State<F61ReviewObservation> {
                             ),
                           )
                         else ...[
-                          _StepTitle(number: 1, title: r.isDisease ? 'Check the symptoms' : 'Check the AI result'),
+                          _StepTitle(number: 1, title: r.isDisease ? 'Check the symptoms' : 'Check the model result'),
                           r.isDisease ? _diseaseCheck(r) : _pestCheck(r),
                           const SizedBox(height: AppSpacing.xl),
                           const _StepTitle(number: 2, title: 'Your decision'),
@@ -455,6 +455,7 @@ class _F61ReviewObservationState extends State<F61ReviewObservation> {
           row(Icons.location_on_outlined, 'Area', [r.barangay, r.municipality].where((x) => x.isNotEmpty).join(', ')),
           row(Icons.schedule_rounded, 'Sent', formatDateTime(r.createdAt)),
           row(Icons.grass_rounded, 'Crop stage', r.cropStage),
+          row(Icons.terrain_rounded, 'Land type', landTypeLabel(r.landType)),
           if (!r.isDisease) row(Icons.visibility_outlined, 'Method', r.monitoringMethod),
           if (trap) row(Icons.lightbulb_outline_rounded, 'Trap or lure', r.trapType),
           if (trap) row(Icons.bug_report_outlined, 'Target pest', r.targetPest),
@@ -490,8 +491,8 @@ class _F61ReviewObservationState extends State<F61ReviewObservation> {
                 Expanded(
                   child: Text(
                     !aiNamed
-                        ? (ai?.message.isNotEmpty == true ? ai!.message : 'The AI could not name a pest.')
-                        : 'AI: ${ai!.pestLabel} · ${((ai.confidence ?? 0) * 100).round()}% sure · '
+                        ? (ai?.message.isNotEmpty == true ? ai!.message : 'The model result names no pest.')
+                        : 'Model result: ${ai!.pestLabel} · ${((ai.confidence ?? 0) * 100).round()}% sure · '
                             '${ai.count != null ? plural(ai.count!, 'insect') : 'not countable'}',
                     style: const TextStyle(height: 1.35, fontWeight: FontWeight.w600, fontSize: 13.5),
                   ),
@@ -512,13 +513,13 @@ class _F61ReviewObservationState extends State<F61ReviewObservation> {
               action: _countable && _count == null ? 'Enter' : 'Correct'),
           const SizedBox(height: AppSpacing.sm),
           if (_sameAsAi)
-            const AppChip(label: 'Confirming the AI result', color: AppColors.primary, icon: Icons.check_circle_rounded)
+            const AppChip(label: 'Confirming the model result', color: AppColors.primary, icon: Icons.check_circle_rounded)
           else if (_pest != null)
             Row(
               children: [
                 const AppChip(label: 'Corrected by you', color: AppColors.orange, icon: Icons.edit_rounded),
                 const Spacer(),
-                if (aiNamed) TextButton(onPressed: _resetToAi, child: const Text('Use the AI result')),
+                if (aiNamed) TextButton(onPressed: _resetToAi, child: const Text('Use the model result')),
               ],
             ),
         ],
@@ -530,7 +531,7 @@ class _F61ReviewObservationState extends State<F61ReviewObservation> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('No AI is used for disease reports. Look at the photo and what the farmer describes.',
+            const Text('There is no model result for disease reports. Look at the photo and what the farmer describes.',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.4)),
             const SizedBox(height: AppSpacing.md),
             const Text('Symptoms', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),

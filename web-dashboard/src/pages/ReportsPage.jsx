@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api.js';
 import { Button, ErrorNote, Field, PageHeader, Select } from '../components/ui.jsx';
-import { monthLabel, MUNICIPALITIES, quarterLabel, todayIso, useAction, useAsync } from '../lib.js';
+import { LAND_TYPES, monthLabel, MUNICIPALITIES, quarterLabel, todayIso, useAction, useAsync } from '../lib.js';
 
 function ReportCard({ title, description, columns, children, onDownload, disabled }) {
   const action = useAction();
@@ -32,7 +32,7 @@ function ReportCard({ title, description, columns, children, onDownload, disable
 }
 
 export default function ReportsPage() {
-  const [rec, setRec] = useState({ start: '', end: '', municipality: '' });
+  const [rec, setRec] = useState({ start: '', end: '', municipality: '', land_type: '' });
   const [treat, setTreat] = useState({ start: '', end: '' });
   const [month, setMonth] = useState('');
   const [quarter, setQuarter] = useState('');
@@ -56,10 +56,10 @@ export default function ReportsPage() {
         <ReportCard
           title="Validated observations"
           description="Every validated observation with the confirmed pest, count, infestation level, reviewer, diagnosis and guidance."
-          columns="observation ID, date, municipality, barangay, submitted by, type, pest, count, infestation level, crop stage, monitoring method, validated by / at, diagnosis, guidance, latitude, longitude"
+          columns="observation ID, date, municipality, barangay, submitted by, type, pest, count, infestation level, crop stage, land type, monitoring method, validated by / at, diagnosis, guidance, latitude, longitude"
           onDownload={() => api.downloadReport('records', rec, `validated-observations-${stamp}.csv`)}
         >
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
             <Field label="From">
               <input type="date" className="input" value={rec.start} onChange={(e) => setRec({ ...rec, start: e.target.value })} />
             </Field>
@@ -69,12 +69,15 @@ export default function ReportsPage() {
             <Field label="Municipality">
               <Select value={rec.municipality} onChange={(v) => setRec({ ...rec, municipality: v })} placeholder="All" options={MUNICIPALITIES} />
             </Field>
+            <Field label="Land type">
+              <Select value={rec.land_type} onChange={(v) => setRec({ ...rec, land_type: v })} placeholder="All" options={LAND_TYPES} />
+            </Field>
           </div>
         </ReportCard>
 
         <ReportCard
           title="Monthly summary"
-          description="Validated observations and pests counted for one month, broken down by municipality and by pest with LOW / MEDIUM / HIGH counts."
+          description="Validated observations and pests counted for one month, broken down by municipality, by pest and by land type with LOW / MEDIUM / HIGH counts."
           columns="month, breakdown, name, validated observations, pests counted, LOW, MEDIUM, HIGH"
           disabled={!pickedMonth}
           onDownload={() => api.downloadReport('monthly', { month: pickedMonth }, `monthly-summary-${pickedMonth}.csv`)}
@@ -109,7 +112,7 @@ export default function ReportsPage() {
         <ReportCard
           title="Treatment follow-ups"
           description="Each logged treatment with its linked follow-up observation: level and count before and after, change, and outcome."
-          columns="treatment ID, observation ID, municipality, barangay, farmer, pest, crop stage, treatment, type, applied, follow-up due, level / count before, follow-up observation, level / count after, change %, outcome"
+          columns="treatment ID, observation ID, municipality, barangay, farmer, pest, crop stage, land type, treatment, type, applied, follow-up due, level / count before, follow-up observation, level / count after, change %, outcome"
           onDownload={() => api.downloadReport('treatments', treat, `treatment-followups-${stamp}.csv`)}
         >
           <div className="grid max-w-md grid-cols-2 gap-3">

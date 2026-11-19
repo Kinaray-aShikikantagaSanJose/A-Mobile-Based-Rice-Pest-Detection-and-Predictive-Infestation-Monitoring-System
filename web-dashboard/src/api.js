@@ -262,11 +262,19 @@ export const api = {
 
   overview: () => request('/analytics/overview'),
   hotspots: (params) => request('/analytics/hotspots', { params }),
+  // Directional spread: where validated cases moved between two consecutive windows.
+  spread: (params) => request('/analytics/spread', { params }),
   records: (params) => request('/analytics/records', { params }),
   monthly: (month) => request('/analytics/monthly', { params: { month } }),
   quarterly: (quarter) => request('/analytics/quarterly', { params: { quarter } }),
   trendPrediction: (weeks = 26, ahead = 4) => request('/analytics/trends/prediction', { params: { weeks, ahead } }),
   treatments: () => request('/analytics/treatments'),
+  // Staff: follow-up (feedback) date and re-allowing an already-tried option.
+  updateTreatment: (id, body) => request(`/dashboard/treatments/${id}`, { method: 'PATCH', body }),
+
+  // 'What to look for' pest and symptom guide (same content as the mobile app).
+  guide: () => request('/guide'),
+  guidePhotoUrl: (path) => cachedBlobUrl(`guide:${path}`, path),
 
   // Review queue (technicians: pending in their area; agriculturists: escalations)
   queue: (kind) => request('/sync/queue', { params: { kind } }),

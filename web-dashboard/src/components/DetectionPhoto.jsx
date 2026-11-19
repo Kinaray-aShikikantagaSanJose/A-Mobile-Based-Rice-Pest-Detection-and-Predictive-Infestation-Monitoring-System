@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { fmtConf, pestLabel } from '../lib.js';
 
-const MAIN = '#FACC15'; // boxes of the pest the AI settled on
+const MAIN = '#FACC15'; // boxes of the pest the model result settled on
 const OTHER = '#38BDF8'; // boxes of any other pest it saw
 const MAX_LABELS = 30; // beyond this, labels only on hover
 
 /**
- * The full photo with the AI's detection boxes drawn over it. Boxes are
+ * The full photo with the model result's detection boxes drawn over it. Boxes are
  * fractions (0–1) of the stored photo, so they're positioned in percent over
  * an <img> shown at its natural aspect ratio (no cropping) and line up at any size.
  */
@@ -78,7 +78,7 @@ export default function DetectionPhoto({ scanId, detections = [], mainPest }) {
         {hasBoxes ? (
           <label className="flex cursor-pointer items-center gap-2">
             <input type="checkbox" className="h-4 w-4 accent-brand-700" checked={showBoxes} onChange={(e) => setShowBoxes(e.target.checked)} />
-            Show AI boxes ({detections.length})
+            Show model result boxes ({detections.length})
             <span className="flex items-center gap-1">
               <span className="inline-block h-2.5 w-2.5" style={{ background: MAIN }} />
               {pestLabel(mainPest)}

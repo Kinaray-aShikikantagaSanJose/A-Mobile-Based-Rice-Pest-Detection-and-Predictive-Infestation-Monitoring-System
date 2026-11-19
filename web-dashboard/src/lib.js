@@ -99,7 +99,7 @@ export const fmtNum = (n, digits = 0) =>
   n === null || n === undefined ? '—' : Number(n).toLocaleString('en-PH', { maximumFractionDigits: digits });
 export const fmtPct = (n) => (n === null || n === undefined ? '—' : `${n > 0 ? '+' : ''}${fmtNum(n, 1)}%`);
 export const fmtConf = (c) => (c === null || c === undefined ? '' : `${Math.round(c * 100)}%`);
-/** A count of null means the reviewer (or the AI) marked it not countable. */
+/** A count of null means the reviewer (or the model result) marked it not countable. */
 export const fmtCount = (n) => (n === null || n === undefined ? 'Not countable' : fmtNum(n));
 
 export const monthLabel = (ym) =>
@@ -129,6 +129,14 @@ export const todayIso = () => {
 export const ROLE_LABELS = { farmer: 'Farmer', technician: 'Technician', agriculturist: 'Agriculturist' };
 export const LEVELS = ['LOW', 'MEDIUM', 'HIGH'];
 export const CROP_STAGES = ['Vegetative', 'Reproductive', 'Ripening'];
+// Same keys as the API (app/land.py). '' = recorded before the field existed.
+export const LAND_TYPES = [
+  ['upland', 'Upland'],
+  ['rainfed_lowland', 'Rainfed lowland'],
+  ['irrigated_lowland', 'Irrigated lowland'],
+];
+const LAND_LABELS = Object.fromEntries(LAND_TYPES);
+export const landTypeLabel = (key) => LAND_LABELS[key] || 'Not recorded';
 
 // Keys match the backend (levels.py); "other" = outside the four the model knows.
 export const PEST_OPTIONS = [

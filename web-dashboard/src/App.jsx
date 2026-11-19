@@ -10,6 +10,7 @@ import LoginScreen, { accessProblem, STAFF } from './components/LoginScreen.jsx'
 import Sidebar from './components/Sidebar.jsx';
 import { useInterval, useOnline } from './lib.js';
 import CriteriaPage from './pages/CriteriaPage.jsx';
+import GuidePage from './pages/GuidePage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
 import HomePage from './pages/HomePage.jsx';
 import LibraryPage from './pages/LibraryPage.jsx';
@@ -39,6 +40,7 @@ const NAV = {
       items: [
         { id: 'library', label: 'Treatment library', icon: 'book', Page: LibraryPage },
         { id: 'criteria', label: 'Infestation criteria', icon: 'gauge', Page: CriteriaPage },
+        { id: 'guide', label: 'What to look for', icon: 'bug', Page: GuidePage },
       ],
     },
   ],
@@ -65,6 +67,7 @@ const NAV = {
       items: [
         { id: 'library', label: 'Treatment library', icon: 'book', Page: LibraryPage },
         { id: 'criteria', label: 'Infestation criteria', icon: 'gauge', Page: CriteriaPage },
+        { id: 'guide', label: 'What to look for', icon: 'bug', Page: GuidePage },
       ],
     },
     {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { fmtConf, fmtCount, fmtDate, fmtDateTime, OPTION_TYPES, pestLabel, REVIEW_ACTIONS, ROLE_LABELS, useAsync, waitingLabel } from '../lib.js';
+import { fmtConf, fmtCount, fmtDate, fmtDateTime, landTypeLabel, OPTION_TYPES, pestLabel, REVIEW_ACTIONS, ROLE_LABELS, useAsync, waitingLabel } from '../lib.js';
 import DetectionPhoto from './DetectionPhoto.jsx';
 import MiniMap from './MiniMap.jsx';
 import ReviewForm from './ReviewForm.jsx';
@@ -31,7 +31,7 @@ function AiCard({ ai }) {
   const failed = ai.status === 'failed';
   return (
     <div className="rounded-2xl border border-line bg-white p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-ink2">AI result</div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-ink2">Model result</div>
       {ai.pest ? (
         <>
           <div className="mt-1 flex flex-wrap items-baseline gap-2">
@@ -113,13 +113,30 @@ function History({ scan }) {
   );
 }
 
+/** Options hidden from the farmer by the treatment feedback rule. */
+function AlreadyTried({ items }) {
+  if (!items?.length) return null;
+  return (
+    <p className="rounded-lg bg-canvas px-3 py-2 text-xs text-ink2">
+      Not recommended to this farmer again (they applied it and sent feedback):{' '}
+      <b className="text-ink">{items.map((t) => t.title).join(', ')}</b>. Re-allow it under Treatments &amp; follow-ups.
+    </p>
+  );
+}
+
 function Recommendations({ recs }) {
   const groups = OPTION_TYPES.filter(([k]) => recs.groups[k]?.length);
   if (!groups.length) {
-    return <p className="text-sm text-ink2">No approved library entries match this pest, crop stage and level yet.</p>;
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-ink2">No approved library entries match this pest, crop stage and level yet.</p>
+        <AlreadyTried items={recs.already_tried} />
+      </div>
+    );
   }
   return (
     <div className="space-y-3">
+      <AlreadyTried items={recs.already_tried} />
       {groups.map(([k, label]) => (
         <div key={k}>
           <div className="text-xs font-semibold uppercase tracking-wide text-ink2">{label}</div>
@@ -139,7 +156,7 @@ function Recommendations({ recs }) {
 }
 
 /**
- * The shared review panel: photo with AI boxes, details, history, treatments,
+ * The shared review panel: photo with model result boxes, details, history, treatments,
  * and the review actions when the viewer may act on this observation.
  * `onReviewed(message)` lets queues close the panel and refresh after a decision.
  */
@@ -254,6 +271,7 @@ export default function RecordDrawer({ scanId, viewer, onClose, onChanged, onRev
                     ) : null}
                   </Fact>
                   <Fact label="Crop stage">{scan.crop_stage}</Fact>
+                  <Fact label="Land type">{scan.land_type_label || landTypeLabel(scan.land_type)}</Fact>
                   {scan.monitoring_method && <Fact label="Monitoring">{scan.monitoring_method}</Fact>}
                   {scan.monitoring_method === 'Trap-based' && (
                     <>

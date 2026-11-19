@@ -429,11 +429,20 @@ class _F24RecordDetailState extends State<F24RecordDetail> {
         child: recs == null
             ? const Text('Open this record with signal to see the options.')
             : recs.isEmpty
-                ? const Text(
-                    'No approved options for this case yet. Ask your agricultural technician what to do.',
-                    style: TextStyle(height: 1.45),
-                  )
-                : _Options(recs: recs),
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'No approved options for this case yet. Ask your agricultural technician what to do.',
+                            style: TextStyle(height: 1.45),
+                          ),
+                          if (recs.alreadyTried.isNotEmpty) ...[
+                            const SizedBox(height: AppSpacing.sm),
+                            _AlreadyTried(titles: recs.alreadyTried),
+                          ],
+                        ],
+                      )
+                    : _Options(recs: recs),
       ),
       if (r.isMine) ...[
         const SizedBox(height: AppSpacing.md),
@@ -464,6 +473,7 @@ class _F24RecordDetailState extends State<F24RecordDetail> {
           _Detail('Report', r.isDisease ? 'Disease report' : 'Pest report'),
           if (r.resubmissionOf != null) _Detail('Retake', 'New photo for report #${r.resubmissionOf}'),
           _Detail('Crop stage', r.cropStage),
+          _Detail('Land type', landTypeLabel(r.landType)),
           if (!r.isDisease) _Detail('Checked by', r.monitoringMethod),
           if (trap && r.trapType.isNotEmpty) _Detail('Trap or lure', r.trapType),
           if (trap && r.targetPest.isNotEmpty) _Detail('Target pest', r.targetPest),
@@ -600,6 +610,10 @@ class _Options extends StatelessWidget {
           'Choose what fits your farm; your technician can help.',
           style: TextStyle(color: AppColors.textSecondary, fontSize: 13.5, height: 1.4),
         ),
+        if (recs.alreadyTried.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _AlreadyTried(titles: recs.alreadyTried),
+        ],
         for (final type in ['cultural', 'biological', 'ecological', 'chemical'])
           if ((recs.groups[type] ?? const []).isNotEmpty) ...[
             const SizedBox(height: AppSpacing.lg),
@@ -646,6 +660,19 @@ class _Options extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Options left out because the farmer already applied them and sent feedback.
+class _AlreadyTried extends StatelessWidget {
+  final List<String> titles;
+  const _AlreadyTried({required this.titles});
+
+  @override
+  Widget build(BuildContext context) => Text(
+        'Not shown again because you already tried ${titles.length == 1 ? 'it' : 'them'} and sent feedback: '
+        '${titles.join(', ')}. Your technician can recommend ${titles.length == 1 ? 'it' : 'them'} again.',
+        style: const TextStyle(color: AppColors.textMuted, fontSize: 12.5, height: 1.4),
+      );
 }
 
 class _FollowUpPrompt extends StatelessWidget {
@@ -712,6 +739,9 @@ class _TreatmentRow extends StatelessWidget {
                 Text(t.treatment, style: const TextStyle(fontWeight: FontWeight.w800)),
                 Text('Applied ${formatShortDate(t.appliedAt)}',
                     style: const TextStyle(color: AppColors.textMuted, fontSize: 12.5)),
+                if (t.followUpSetBy != null && t.followUpScanId == null)
+                  const Text('Follow-up date set by your technician',
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 12.5)),
               ],
             ),
           ),
