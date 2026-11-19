@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../app_router.dart';
 import '../models/record.dart';
+import '../services/api_client.dart';
 import '../services/gps_service.dart';
 import '../services/local_store.dart';
 import '../services/sync_service.dart';
@@ -38,11 +39,11 @@ class ObserveArgs {
   const ObserveArgs({this.followUpOf, this.followUpLabel, this.retakeOf, this.presetType});
 }
 
-enum _Step { photo, location, stage, type, method, notes, review }
+enum _Step { photo, location, land, stage, type, method, notes, review }
 
 /// New observation, one decision per screen:
-/// 1 photo · 2 location · 3 crop stage · 4 pest or disease report ·
-/// 5 monitoring method (pest only) · 6 notes · 7 submit.
+/// 1 photo · 2 location · 3 land type · 4 crop stage · 5 pest or disease report ·
+/// 6 monitoring method (pest only) · 7 notes · 8 submit.
 class F30NewObservation extends StatefulWidget {
   final ObserveArgs args;
   const F30NewObservation({super.key, this.args = const ObserveArgs()});
@@ -59,6 +60,14 @@ class _F30NewObservationState extends State<F30NewObservation> {
   bool _locationConfirmed = false;
   bool _skipLocation = false;
   String? _stage;
+
+  /// Required: upland | rainfed_lowland | irrigated_lowland.
+  String? _landType;
+
+  /// Elevation-based suggestion from the server (null until looked up).
+  Map<String, dynamic>? _landHint;
+  bool _landHintLoading = false;
+  String? _landHintError;
   String _method = 'direct';
   String? _trapType;
   String? _targetPest;
@@ -79,6 +88,7 @@ class _F30NewObservationState extends State<F30NewObservation> {
   List<_Step> get _steps => [
         _Step.photo,
         _Step.location,
+        _Step.land,
         _Step.stage,
         if (!_typeFixed) _Step.type,
         if (!_isDisease) _Step.method,
@@ -119,6 +129,7 @@ class _F30NewObservationState extends State<F30NewObservation> {
     String? known(String v, List<String> options) => options.contains(v) ? v : null;
     _type = r.isDisease ? 'disease' : 'pest';
     _stage = kCropStages.contains(r.cropStage) ? r.cropStage : null;
+    _landType = known(r.landType, [for (final (k, _, _) in kLandTypes) k]);
     _method = !r.isDisease && r.monitoringMethod == 'Trap-based' ? 'trap' : 'direct';
     _trapType = known(r.trapType, kTrapTypes);
     _targetPest = known(r.targetPest, kTargetPests);
@@ -129,7 +140,7 @@ class _F30NewObservationState extends State<F30NewObservation> {
       _locationConfirmed = true;
     }
     // Missing details (e.g. an unknown crop stage) are asked in order.
-    _returnToReview = _stage != null && (!r.isDisease || r.notes.trim().length >= 3);
+    _returnToReview = _stage != null && _landType != null && (!r.isDisease || r.notes.trim().length >= 3);
   }
 
   // ---------------------------------------------------------------- navigation
@@ -138,6 +149,7 @@ class _F30NewObservationState extends State<F30NewObservation> {
     FocusScope.of(context).unfocus();
     setState(() => _step = step);
     if (step == _Step.location && !_gps.hasFix) _detectLocation(ask: true);
+    if (step == _Step.land) _suggestLandType();
   }
 
   void _next() {
@@ -238,9 +250,44 @@ class _F30NewObservationState extends State<F30NewObservation> {
     setState(() {
       _gps = const GpsResult(GpsStatus.detecting);
       _locationConfirmed = false;
+      _landHint = null; // a new location gets a new land type suggestion
+      _landHintError = null;
     });
     final r = await GpsService.getCurrentPosition(requestPermission: ask);
     if (mounted) setState(() => _gps = r);
+  }
+
+  /// Looks up the field's elevation once (needs the location and signal) and
+  /// suggests a land type. The farmer or technician always picks it.
+  Future<void> _suggestLandType() async {
+    final useGps = _gps.hasFix && !_skipLocation;
+    if (!useGps || _landHint != null || _landHintLoading) return;
+    final lat = _gps.lat!, lng = _gps.lng!;
+    setState(() {
+      _landHintLoading = true;
+      _landHintError = null;
+    });
+    try {
+      final data = await ApiClient.get('/sync/land-type-suggestion', query: {
+        'lat': lat.toStringAsFixed(6),
+        'lng': lng.toStringAsFixed(6),
+      }) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _landHint = data;
+        // Upland can be suggested outright; lowland needs the water source.
+        if (_landType == null && data['suggested'] is String) _landType = data['suggested'] as String;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _landHintError = 'No suggestion right now (no signal). Pick the land type yourself.');
+    } finally {
+      if (mounted) setState(() => _landHintLoading = false);
+    }
+  }
+
+  void _pickLandType(String key) {
+    setState(() => _landType = key);
+    _next();
   }
 
   void _pickStage(String stage) {
@@ -253,7 +300,9 @@ class _F30NewObservationState extends State<F30NewObservation> {
   Future<void> _submit() async {
     if (_photo == null) return;
     // Anything still missing is asked for, then back to the summary.
-    final missing = _stage == null
+    final missing = _landType == null
+        ? _Step.land
+        : _stage == null
         ? _Step.stage
         : _type == null
             ? _Step.type
@@ -274,6 +323,7 @@ class _F30NewObservationState extends State<F30NewObservation> {
       confirmLabel: 'Yes, send it',
       summary: [
         ('Report', _isDisease ? 'Disease report' : 'Pest report'),
+        ('Land type', landTypeLabel(_landType)),
         ('Crop stage', _stage!),
         ('Location', _gps.hasFix && !_skipLocation ? 'Included' : 'Not included'),
         if (!_isDisease) ('Checked by', trap ? 'Trap-based' : 'Direct field observation'),
@@ -295,6 +345,8 @@ class _F30NewObservationState extends State<F30NewObservation> {
       notes: _notes.text.trim(),
       followUpOf: widget.args.followUpOf,
       resubmissionOf: _retakeOf?.id,
+      landType: _landType!,
+      elevationM: (_landHint?['elevation_m'] as num?)?.toDouble(),
       createdAt: nowWithOffset(),
     );
     context.pushReplacement(AppRouter.submitted, extra: PendingSubmission(o, SyncService.submit(o)));
@@ -445,6 +497,54 @@ class _F30NewObservationState extends State<F30NewObservation> {
           ],
         ];
 
+      case _Step.land:
+        final hint = _landHint;
+        final group = hint?['group'] as String?;
+        return [
+          const _Question('What kind of land is this field?'),
+          if (_landHintLoading)
+            const AppCard(
+              child: Row(
+                children: [
+                  Icon(Icons.terrain_rounded, color: AppColors.primary),
+                  SizedBox(width: AppSpacing.md),
+                  Expanded(child: Text('Checking the elevation of your field…', style: TextStyle(fontSize: 14.5))),
+                ],
+              ),
+            )
+          else if (hint != null && group != null)
+            InfoBanner(icon: Icons.terrain_rounded, color: AppColors.primary, message: '${hint['reason']}')
+          else if (_landHintError != null || hint != null)
+            InfoBanner(
+              icon: Icons.terrain_rounded,
+              color: AppColors.textSecondary,
+              message: _landHintError ?? '${hint!['reason']}',
+            )
+          else if (!_gps.hasFix || _skipLocation)
+            const Text(
+              'Without a location the app can\'t suggest one. Pick the land type yourself.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14.5, height: 1.4),
+            ),
+          const SizedBox(height: AppSpacing.lg),
+          for (final (i, (key, label, help)) in kLandTypes.indexed) ...[
+            if (i > 0) const SizedBox(height: AppSpacing.md),
+            ChoiceTile(
+              icon: const [Icons.landscape_rounded, Icons.water_drop_outlined, Icons.water_rounded][i],
+              title: (group == 'upland' && key == 'upland') || (group == 'lowland' && key != 'upland')
+                  ? '$label (suggested)'
+                  : label,
+              subtitle: help,
+              selected: _landType == key,
+              onTap: () => _pickLandType(key),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          const Text(
+            'The suggestion comes from the elevation only. Change it if your field is different.',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 13, height: 1.4),
+          ),
+        ];
+
       case _Step.stage:
         return [
           const _Question('What stage is the rice?'),
@@ -550,6 +650,8 @@ class _F30NewObservationState extends State<F30NewObservation> {
                         _gps.hasFix && !_skipLocation && _locationConfirmed ? 'Field confirmed on the map' : 'Not included',
                         onEdit: () => _edit(_Step.location),
                       ),
+                      _SummaryRow('Land type', _landType == null ? '—' : landTypeLabel(_landType),
+                          onEdit: () => _edit(_Step.land)),
                       _SummaryRow('Crop stage', _stage ?? '—', onEdit: () => _edit(_Step.stage)),
                       _SummaryRow('Report', _type == null ? '—' : _isDisease ? 'Disease report' : 'Pest report',
                           onEdit: _typeFixed ? null : () => _edit(_Step.type)),

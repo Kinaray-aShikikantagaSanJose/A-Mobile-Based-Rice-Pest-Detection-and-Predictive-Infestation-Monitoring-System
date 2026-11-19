@@ -97,6 +97,7 @@ export default function MonthlyPage({ viewer }) {
           <div className="grid gap-6 xl:grid-cols-2">
             <Breakdown title="By municipality" nameLabel="Municipality" rows={d.by_area} />
             <Breakdown title="By pest" nameLabel="Pest / report" rows={d.by_pest} />
+            <Breakdown title="By land type" nameLabel="Land type" rows={d.by_land_type || []} />
           </div>
 
           <Panel title="All months" subtitle="Click a month to open it" bodyClassName="">

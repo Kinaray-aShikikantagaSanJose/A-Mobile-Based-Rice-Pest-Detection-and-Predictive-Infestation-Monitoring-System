@@ -368,7 +368,7 @@ function PestValidate({ scan, pest, count, countReady, escalated, busy, error, o
   );
 }
 
-/** Validate a disease report: no AI; the reviewer sets the level, diagnosis optional unless escalated. */
+/** Validate a disease report: no model result; the reviewer sets the level, diagnosis optional unless escalated. */
 function DiseaseValidate({ escalated, busy, error, onSubmit }) {
   const [level, setLevel] = useState(null);
   const [diagnosis, setDiagnosis] = useState('');
@@ -408,14 +408,14 @@ function DiseaseValidate({ escalated, busy, error, onSubmit }) {
   );
 }
 
-/** Step 1 for a pest report: the AI's pest and count, confirmed or corrected. */
+/** Step 1 for a pest report: the model result's pest and count, confirmed or corrected. */
 function PestCheck({ ai, pest, setPest, countable, setCountable, count, setCount, countOk, sameAsAi, resetToAi, showErrors }) {
   const aiCount = ai.count ?? null;
   const pestMissing = showErrors && !pest;
   return (
     <div className={`space-y-3 rounded-xl border bg-white p-4 transition-colors ${showErrors && (!pest || !countOk) ? 'border-red-300 ring-2 ring-red-100' : 'border-line'}`}>
       <p className="text-sm text-ink2">
-        <span className="font-semibold text-orange-700">AI result:</span>{' '}
+        <span className="font-semibold text-orange-700">Model result:</span>{' '}
         {ai.pest ? (
           <>
             <b className="text-ink">{ai.pest_name}</b>
@@ -439,7 +439,7 @@ function PestCheck({ ai, pest, setPest, countable, setCountable, count, setCount
         />
       </div>
       {sameAsAi ? (
-        <p className="text-xs font-semibold text-brand-700">✓ Confirming the AI result</p>
+        <p className="text-xs font-semibold text-brand-700">✓ Confirming the model result</p>
       ) : (
         pest && (
           <p className="text-xs font-semibold text-orange-700">
@@ -448,7 +448,7 @@ function PestCheck({ ai, pest, setPest, countable, setCountable, count, setCount
               <>
                 {' · '}
                 <button type="button" className="underline" onClick={resetToAi}>
-                  Use the AI result
+                  Use the model result
                 </button>
               </>
             )}
@@ -496,7 +496,7 @@ function PestReview({ scan, canEscalate, escalated, action, submit }) {
       <div ref={step1Ref}>
         <StepTitle
           n={1}
-          hint="Confirm the AI's pest and count, or correct them."
+          hint="Confirm the model result's pest and count, or correct them."
           error={showStep1 ? (!pest ? 'You skipped this step: choose the pest first.' : 'Enter the count, or tick "Not countable".') : null}
         >
           Check the result
@@ -543,7 +543,7 @@ function DiseaseReview({ canEscalate, escalated, action, submit }) {
   };
   return (
     <div className="space-y-4">
-      <StepTitle n={1} hint="No AI is used for disease reports. Look at the photo and the symptoms the farmer described.">
+      <StepTitle n={1} hint="There is no model result for disease reports. Look at the photo and the symptoms the farmer described.">
         Check the report
       </StepTitle>
       <StepTitle n={2}>Decision</StepTitle>

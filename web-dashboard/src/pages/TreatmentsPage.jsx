@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { api } from '../api.js';
 import RecordDrawer from '../components/RecordDrawer.jsx';
-import { Badge, Empty, ErrorNote, LevelBadge, Loading, OutcomeBadge, Panel, PageHeader, Segmented, Stat, Table } from '../components/ui.jsx';
-import { daysSince, fmtDate, fmtNum, useAsync } from '../lib.js';
+import { Badge, Button, Empty, ErrorNote, LevelBadge, Loading, OutcomeBadge, Panel, PageHeader, Segmented, Stat, Table } from '../components/ui.jsx';
+import { daysSince, fmtDate, fmtNum, useAction, useAsync } from '../lib.js';
 
 const OUTCOME_FILTERS = [
   ['all', 'All'],
@@ -62,6 +62,78 @@ function OutcomeSplit({ g }) {
       <span className="whitespace-nowrap text-xs tabular-nums text-ink2">
         {g.improved} / {g.no_change} / {g.worse}
       </span>
+    </div>
+  );
+}
+
+const linkBtn = 'text-xs font-semibold text-brand-700 hover:text-brand-900 disabled:text-muted';
+
+/**
+ * Staff control over the treatment feedback (the follow-up photo):
+ * before it arrives, when the farmer is asked for it; after it arrives,
+ * whether this library option may be recommended to the farmer again.
+ */
+function FeedbackControls({ i, onSaved }) {
+  const action = useAction();
+  const [editing, setEditing] = useState(false);
+  const [date, setDate] = useState(i.follow_up_due || '');
+  const save = (body) =>
+    action.run(async () => {
+      await api.updateTreatment(i.id, body);
+      setEditing(false);
+      onSaved();
+    });
+  const stop = (e) => e.stopPropagation();
+
+  if (!i.follow_up_scan_id) {
+    return (
+      <div onClick={stop} className="min-w-[180px]">
+        {editing ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <input
+              type="date"
+              className="input h-8 w-[150px] py-1 text-xs"
+              min={(i.applied_at || '').slice(0, 10)}
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              aria-label="Feedback date"
+            />
+            <Button size="sm" busy={action.busy} disabled={!date} onClick={() => save({ follow_up_due: date })}>
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="whitespace-nowrap text-xs text-ink2">
+              Due {fmtDate(i.follow_up_due)} · {i.follow_up_set_by ? 'set by staff' : 'automatic'}
+            </div>
+            <div className="mt-0.5 flex gap-3">
+              <button type="button" className={linkBtn} onClick={() => setEditing(true)}>
+                Change date
+              </button>
+              {i.follow_up_set_by && (
+                <button type="button" className={linkBtn} disabled={action.busy} onClick={() => save({ reset_follow_up: true })}>
+                  Use automatic date
+                </button>
+              )}
+            </div>
+          </>
+        )}
+        {action.error && <div className="mt-1 text-xs text-red-600">{action.error}</div>}
+      </div>
+    );
+  }
+  if (!i.library_id) return <div className="mt-0.5 text-xs text-muted">Farmer's own method</div>;
+  return (
+    <div onClick={stop} className="mt-0.5">
+      <div className="text-xs text-ink2">{i.recommend_again ? 'Recommended to the farmer again' : 'Not recommended again (farmer reported back)'}</div>
+      <button type="button" className={linkBtn} disabled={action.busy} onClick={() => save({ recommend_again: !i.recommend_again })}>
+        {i.recommend_again ? 'Stop recommending it' : 'Recommend it again'}
+      </button>
+      {action.error && <div className="mt-1 text-xs text-red-600">{action.error}</div>}
     </div>
   );
 }
@@ -168,7 +240,7 @@ export default function TreatmentsPage({ viewer }) {
         description={
           isAgri
             ? 'Each intervention a farmer logged, paired with the follow-up observation linked to it. The outcome compares the reviewer-confirmed level (and count, when both were countable) before and after.'
-            : 'Treatments farmers in your area logged, and whether their follow-up photos came in. A follow-up is due a week after the treatment.'
+            : 'Treatments farmers in your area logged, and whether their follow-up photos came in. A follow-up is due a week after the treatment unless you set another date.'
         }
         area={isAgri ? undefined : viewer.area_label}
       />
@@ -238,18 +310,21 @@ export default function TreatmentsPage({ viewer }) {
                   label: 'Follow-up',
                   render: (i) =>
                     i.follow_up_scan_id ? (
-                      <button
-                        type="button"
-                        className="whitespace-nowrap text-sm font-semibold text-brand-700 hover:text-brand-900"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenId(i.follow_up_scan_id);
-                        }}
-                      >
-                        #{i.follow_up_scan_id} · {fmtDate(i.follow_up_at)}
-                      </button>
+                      <div>
+                        <button
+                          type="button"
+                          className="whitespace-nowrap text-sm font-semibold text-brand-700 hover:text-brand-900"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenId(i.follow_up_scan_id);
+                          }}
+                        >
+                          #{i.follow_up_scan_id} · {fmtDate(i.follow_up_at)}
+                        </button>
+                        <FeedbackControls i={i} onSaved={res.reload} />
+                      </div>
                     ) : (
-                      <span className="whitespace-nowrap text-xs text-ink2">Due {fmtDate(i.follow_up_due)}</span>
+                      <FeedbackControls i={i} onSaved={res.reload} />
                     ),
                 },
                 { key: 'outcome', label: 'Outcome', render: (i) => <OutcomeBadge outcome={i.outcome} /> },

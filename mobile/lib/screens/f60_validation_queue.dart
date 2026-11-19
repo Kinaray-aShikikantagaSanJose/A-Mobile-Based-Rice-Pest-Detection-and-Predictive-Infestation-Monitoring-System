@@ -243,7 +243,7 @@ class _QueueRow extends StatelessWidget {
     } else if (ai != null && ai.recognized) {
       title = ai.pestLabel;
     } else {
-      title = 'AI: not identified';
+      title = 'Model result: not identified';
     }
     return AppCard(
       onTap: onTap,

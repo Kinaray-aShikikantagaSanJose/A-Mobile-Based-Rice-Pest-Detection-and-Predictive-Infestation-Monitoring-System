@@ -12,7 +12,7 @@ function waitTone(iso) {
 
 function AiGuess({ ai }) {
   if (!ai?.pest) {
-    return <span className="text-sm text-ink2">{ai?.status === 'failed' ? 'AI unavailable' : 'AI: no supported pest found'}</span>;
+    return <span className="text-sm text-ink2">{ai?.status === 'failed' ? 'Model result unavailable' : 'Model result: no supported pest found'}</span>;
   }
   return (
     <span className="flex flex-wrap items-center gap-2">
@@ -101,7 +101,7 @@ export default function QueuePage({ viewer, onChanged }) {
         description={
           escalations
             ? 'Cases technicians escalated, and observations from places no technician covers, oldest first. Check the result, then return it, or validate it with the level. For escalated cases, record the diagnosis and the guidance for the farmer.'
-            : 'Observations from farmers in your coverage area, oldest first. Check the result (confirm or correct the AI), then decide: return it for a new photo, validate it with the level, or escalate it.'
+            : 'Observations from farmers in your coverage area, oldest first. Check the result (confirm or correct the model result), then decide: return it for a new photo, validate it with the level, or escalate it.'
         }
         area={escalations ? undefined : viewer.area_label}
         actions={

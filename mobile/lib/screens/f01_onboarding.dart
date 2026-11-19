@@ -67,7 +67,7 @@ class _F01OnboardingScreenState extends State<F01OnboardingScreen> {
         OnboardingBadge(Icons.photo_camera_outlined, AppColors.primary),
         OnboardingBadge(Icons.auto_awesome_outlined, AppColors.orange),
       ],
-      title: 'AI Pest Identification',
+      title: 'Pest Identification (Model Result)',
       description:
           'Capture field images to detect supported pests, crop stages, and infestation indications in seconds.',
       buttonText: 'Next',

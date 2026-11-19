@@ -117,6 +117,8 @@ class SyncService {
         'target_pest': o.targetPest,
         'target_sex': o.targetSex,
         'notes': o.notes,
+        'land_type': o.landType,
+        if (o.elevationM != null) 'elevation_m': o.elevationM!.toString(),
         if (o.followUpOf != null) 'follow_up_of': '${o.followUpOf}',
         if (o.resubmissionOf != null) 'resubmission_of': '${o.resubmissionOf}',
       };

@@ -81,6 +81,9 @@ class TreatmentInfo {
   final String? followUpDue;
   final int? followUpScanId;
 
+  /// Set when a technician or agriculturist chose the follow-up date.
+  final String? followUpSetBy;
+
   /// Logged on the phone, not yet on the server.
   final bool pending;
 
@@ -92,6 +95,7 @@ class TreatmentInfo {
     required this.appliedAt,
     this.followUpDue,
     this.followUpScanId,
+    this.followUpSetBy,
     this.pending = false,
   });
 
@@ -103,6 +107,7 @@ class TreatmentInfo {
         appliedAt: _s(j['applied_at']),
         followUpDue: j['follow_up_due'] as String?,
         followUpScanId: _i(j['follow_up_scan_id']),
+        followUpSetBy: j['follow_up_set_by'] as String?,
       );
 
   /// "How is the field now?" is due (and not answered yet).
@@ -127,7 +132,7 @@ class TreatmentOption {
 class Recommendations {
   final Map<String, List<TreatmentOption>> groups;
   final String chemicalNote;
-  const Recommendations(this.groups, this.chemicalNote);
+  const Recommendations(this.groups, this.chemicalNote, [this.alreadyTried = const []]);
 
   factory Recommendations.fromJson(Map<String, dynamic> j) {
     final groups = <String, List<TreatmentOption>>{};
@@ -138,8 +143,14 @@ class Recommendations {
               _s(o['source_reference'])),
       ];
     });
-    return Recommendations(groups, _s(j['chemical_note']));
+    return Recommendations(groups, _s(j['chemical_note']), [
+      for (final t in (j['already_tried'] as List? ?? const [])) _s((t as Map)['title']),
+    ]);
   }
+
+  /// Options the farmer already applied and reported back on: no longer
+  /// recommended unless their technician or agriculturist allows them again.
+  final List<String> alreadyTried;
 
   List<TreatmentOption> get all => [for (final list in groups.values) ...list];
   bool get isEmpty => all.isEmpty;
@@ -182,6 +193,9 @@ class Record {
   String get targetPest => server != null ? _s(server!['target_pest']) : pending!.targetPest;
   String get targetSex => server != null ? _s(server!['target_sex']) : pending!.targetSex;
   String get notes => server != null ? _s(server!['notes']) : pending!.notes;
+
+  /// upland | rainfed_lowland | irrigated_lowland ('' = recorded before the field existed).
+  String get landType => server != null ? _s(server!['land_type']) : pending!.landType;
   double? get lat => server != null ? _d(server!['lat']) : pending!.lat;
   double? get lng => server != null ? _d(server!['lng']) : pending!.lng;
   int? get followUpOf => server != null ? _i(server!['follow_up_of']) : pending!.followUpOf;
@@ -229,7 +243,7 @@ class Record {
 
   RecordState get state => recordState(uploaded: uploaded, status: status, isDisease: isDisease);
 
-  /// Short title for lists: confirmed pest, else the AI's guess, else the type.
+  /// Short title for lists: confirmed pest, else the model result, else the type.
   String get title {
     if (isDisease) return 'Disease report';
     final c = confirmed;

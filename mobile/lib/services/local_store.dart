@@ -22,6 +22,8 @@ class OutboxObservation {
   final String notes;
   final int? followUpOf; // server id of the treatment this follow-up checks on
   final int? resubmissionOf; // server id of the returned observation this retakes
+  final String landType; // upland | rainfed_lowland | irrigated_lowland
+  final double? elevationM; // looked up for the land type suggestion, if any
   final String createdAt; // ISO 8601 with offset
   final String lastError;
 
@@ -40,6 +42,8 @@ class OutboxObservation {
     this.notes = '',
     this.followUpOf,
     this.resubmissionOf,
+    this.landType = '',
+    this.elevationM,
     required this.createdAt,
     this.lastError = '',
   });
@@ -61,6 +65,8 @@ class OutboxObservation {
         'notes': notes,
         'follow_up_of': followUpOf,
         'resubmission_of': resubmissionOf,
+        'land_type': landType,
+        'elevation_m': elevationM,
         'created_at': createdAt,
         'last_error': lastError,
       };
@@ -80,6 +86,8 @@ class OutboxObservation {
         notes: m['notes'] as String? ?? '',
         followUpOf: m['follow_up_of'] as int?,
         resubmissionOf: m['resubmission_of'] as int?,
+        landType: m['land_type'] as String? ?? '',
+        elevationM: (m['elevation_m'] as num?)?.toDouble(),
         createdAt: m['created_at'] as String,
         lastError: m['last_error'] as String? ?? '',
       );
@@ -133,7 +141,7 @@ class LocalStore {
   LocalStore._();
   static final LocalStore instance = LocalStore._();
 
-  static const int _version = 11;
+  static const int _version = 12;
   Database? _db;
 
   Future<Database> _open() async {
@@ -160,6 +168,11 @@ class LocalStore {
         }
         // v11: last server copy of lists shown offline (notifications, queue).
         if (oldVersion < 11) await _createCache(db);
+        // v12: land type of the field (and the elevation used to suggest it).
+        if (oldVersion < 12) {
+          await db.execute("ALTER TABLE outbox ADD COLUMN land_type TEXT NOT NULL DEFAULT ''");
+          await db.execute('ALTER TABLE outbox ADD COLUMN elevation_m REAL');
+        }
       },
     );
     return _db!;
@@ -182,6 +195,8 @@ class LocalStore {
         notes TEXT NOT NULL DEFAULT '',
         follow_up_of INTEGER,
         resubmission_of INTEGER,
+        land_type TEXT NOT NULL DEFAULT '',
+        elevation_m REAL,
         created_at TEXT NOT NULL,
         last_error TEXT NOT NULL DEFAULT ''
       )''');

@@ -21,9 +21,9 @@ class PendingSubmission {
 
 /// Opens as soon as the user confirms Submit (the upload runs meanwhile, so
 /// nobody waits on the form). Then it shows what happened:
-/// - Online pest report: the server's AI result, clearly marked as not final.
+/// - Online pest report: the server's model result, clearly marked as not final.
 /// - Offline: saved on the phone; nothing comes back until there is signal.
-/// - Disease report: no AI at all; sent to a technician.
+/// - Disease report: no model result at all; sent to a technician.
 class F46ObservationSubmitted extends StatefulWidget {
   final SubmitOutcome? outcome;
   final PendingSubmission? pending;
@@ -65,8 +65,8 @@ class _F46ObservationSubmittedState extends State<F46ObservationSubmitted> {
       null => ('Observation submitted', 'Thank you! We are sending it now. You can leave this screen at any time.'),
       SubmitOutcome(uploaded: false, error: null) => ('Saved on your phone', 'No signal right now. It goes out by itself when you are back in coverage.'),
       SubmitOutcome(uploaded: false) => ('Saved, but not sent', 'The server did not accept it. It is kept on this phone.'),
-      _ when rec.isDisease => ('Report sent', 'Your photo and description reached the agriculture office.'),
-      _ => ('Observation sent', 'Your photo was checked for pests. A technician confirms the result.'),
+      _ when rec.isDisease => ('Picture sent and counted!', 'Your photo and description reached the agriculture office.'),
+      _ => ('Picture sent and counted!', 'Your photo was checked for pests. A technician confirms the result.'),
     };
     return PopScope(
       canPop: false,
@@ -235,7 +235,7 @@ class _PhotoTag extends StatelessWidget {
       );
 }
 
-/// While the upload runs.
+/// While the upload runs: a plain note, no spinner or progress bar.
 class _Sending extends StatelessWidget {
   final bool isDisease;
   const _Sending({required this.isDisease});
@@ -247,20 +247,15 @@ class _Sending extends StatelessWidget {
           children: [
             Row(
               children: [
-                const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+                const Icon(Icons.cloud_upload_outlined, color: AppColors.primary, size: 22),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
-                    isDisease ? 'Sending your report…' : 'Sending and checking for pests…',
+                    isDisease ? 'Sending your picture' : 'Sending your picture for the pest check',
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            const ClipRRect(
-              borderRadius: BorderRadius.all(Radius.circular(AppRadius.pill)),
-              child: LinearProgressIndicator(minHeight: 6),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
@@ -353,7 +348,7 @@ class AiResultCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(a.pestLabel, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                      Text('AI identification', style: const TextStyle(color: AppColors.textMuted, fontSize: 12.5)),
+                      Text('Model result', style: const TextStyle(color: AppColors.textMuted, fontSize: 12.5)),
                     ],
                   ),
                 ),
@@ -407,7 +402,7 @@ class AiResultCard extends StatelessWidget {
   static Color _confidenceColor(double c) => c >= 0.7 ? AppColors.primary : (c >= 0.45 ? AppColors.orange : AppColors.danger);
 }
 
-/// "For technician validation": the AI result is a suggestion, not final.
+/// "For technician validation": the model result is a suggestion, not final.
 class _ValidationBadge extends StatelessWidget {
   const _ValidationBadge();
 

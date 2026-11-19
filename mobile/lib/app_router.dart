@@ -14,6 +14,7 @@ import 'screens/f21_my_records.dart';
 import 'screens/f24_record_detail.dart';
 import 'screens/f25_notifications.dart';
 import 'screens/f26_treatments.dart';
+import 'screens/f27_guide.dart';
 import 'screens/f30_new_observation.dart';
 import 'screens/f31_camera_ui.dart';
 import 'screens/f46_observation_submitted.dart';
@@ -67,6 +68,7 @@ class AppRouter {
   static const record = '/record';
   static const notifications = '/notifications';
   static const treatments = '/treatments';
+  static const guide = '/guide';
   static const profile = '/profile';
 
   /// Technicians: the queue is a tab; this path opens it.
@@ -149,6 +151,7 @@ class AppRouter {
         pageBuilder: (_, _) => _flowPage(const F25Notifications(), name: notifications),
       ),
       GoRoute(path: treatments, pageBuilder: (_, _) => _flowPage(const F26Treatments(), name: treatments)),
+      GoRoute(path: guide, pageBuilder: (_, _) => _flowPage(const F27Guide(), name: guide)),
       GoRoute(path: profile, pageBuilder: (_, _) => _flowPage(const F15Profile(), name: profile)),
       GoRoute(path: map, pageBuilder: (_, _) => _flowPage(const F62LocalMap(), name: map)),
       GoRoute(
